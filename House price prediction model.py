@@ -2,12 +2,10 @@ import streamlit as st
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 
-# Title
 st.title("🏠 House Price Predictor")
 
 st.write("Enter house details below:")
 
-# Load dataset safely
 @st.cache_data
 def load_data():
     url = "https://raw.githubusercontent.com/ageron/handson-ml/master/datasets/housing/housing.csv"
@@ -16,14 +14,12 @@ def load_data():
 
 df = load_data()
 
-# Feature engineering
 df["rooms_per_household"] = df["total_rooms"] / df["households"]
 df["bedrooms_per_room"] = df["total_bedrooms"] / df["total_rooms"]
 df["population_per_household"] = df["population"] / df["households"]
 
 df = df.dropna()
 
-# Features
 X = df[[
     "median_income",
     "housing_median_age",
@@ -38,7 +34,6 @@ X = df[[
 
 y = df["median_house_value"]
 
-# Train model (cached so it doesn't retrain every time)
 @st.cache_resource
 def train_model(X, y):
     model = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42)
@@ -47,7 +42,7 @@ def train_model(X, y):
 
 model = train_model(X, y)
 
-# User Inputs
+
 median_income = st.number_input("Median Income", 0.0, 15.0, 5.0)
 age = st.number_input("House Age", 0, 100, 20)
 rooms = st.number_input("Total Rooms", 1, 10000, 2000)
@@ -55,12 +50,12 @@ bedrooms = st.number_input("Total Bedrooms", 1, 5000, 400)
 population = st.number_input("Population", 1, 10000, 1000)
 households = st.number_input("Households", 1, 5000, 300)
 
-# Derived features
+
 rooms_per_household = rooms / households
 bedrooms_per_room = bedrooms / rooms
 population_per_household = population / households
 
-# Prediction button
+
 if st.button("Predict Price"):
     input_data = pd.DataFrame({
         "median_income": [median_income],
