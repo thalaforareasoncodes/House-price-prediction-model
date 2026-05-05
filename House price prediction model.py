@@ -1,68 +1,79 @@
-# Step 1: Import libraries
+import streamlit as st
 import pandas as pd
-
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, r2_score
 
-url = "https://raw.githubusercontent.com/ageron/handson-ml/master/datasets/housing/housing.csv"
-df = pd.read_csv(url)
+# Title
+st.title("🏠 House Price Predictor")
 
-print(df.head())
+st.write("Enter house details below:")
 
-mi=int(input('Enter median income-:         '))
-hma=int(input('Enter housing_median_age-:   '))
-tr=int(input('Enter total_rooms-:           '))
-tb=int(input('Enter total_bedrooms-:        '))
-p=int(input('Enter population-:             '))
-h=int(input('Enter households-:             '))
-mhv=int(input('Enter median_house_value-:   '))
+# Load dataset safely
+@st.cache_data
+def load_data():
+    url = "https://raw.githubusercontent.com/ageron/handson-ml/master/datasets/housing/housing.csv"
+    df = pd.read_csv(url)
+    return df
 
+df = load_data()
 
-df = df[[
-    "median_income",
-    "housing_median_age",
-    "total_rooms",
-    "total_bedrooms",
-    "population",
-    "households",
-    "median_house_value"
-]]
+# Feature engineering
+df["rooms_per_household"] = df["total_rooms"] / df["households"]
+df["bedrooms_per_room"] = df["total_bedrooms"] / df["total_rooms"]
+df["population_per_household"] = df["population"] / df["households"]
+
 df = df.dropna()
+
+# Features
 X = df[[
     "median_income",
     "housing_median_age",
     "total_rooms",
     "total_bedrooms",
     "population",
-    "households"
+    "households",
+    "rooms_per_household",
+    "bedrooms_per_room",
+    "population_per_household"
 ]]
+
 y = df["median_house_value"]
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-model = RandomForestRegressor(
-    n_estimators=100,
-    max_depth=10,
-    random_state=42
-)
 
-model.fit(X_train, y_train)
-train_pred = model.predict(X_train)
-test_pred = model.predict(X_test)
-print("Train MAE:", mean_absolute_error(y_train, train_pred))
-print("Test MAE:", mean_absolute_error(y_test, test_pred))
+# Train model (cached so it doesn't retrain every time)
+@st.cache_resource
+def train_model(X, y):
+    model = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42)
+    model.fit(X, y)
+    return model
 
-print("R2 Score:", r2_score(y_test, test_pred))
-print("\nFeature Importance:")
-for name, score in zip(X.columns, model.feature_importances_):
-    print(name, ":", score)
-new_house = pd.DataFrame({
-    "median_income": [mi],
-    "housing_median_age": [hma],
-    "total_rooms": [tr],
-    "total_bedrooms": [tb],
-    "population": [p],
-    "households": [h]
-})
-prediction = model.predict(new_house)
+model = train_model(X, y)
 
-print("\nPredicted Price:", prediction[0])
+# User Inputs
+median_income = st.number_input("Median Income", 0.0, 15.0, 5.0)
+age = st.number_input("House Age", 0, 100, 20)
+rooms = st.number_input("Total Rooms", 1, 10000, 2000)
+bedrooms = st.number_input("Total Bedrooms", 1, 5000, 400)
+population = st.number_input("Population", 1, 10000, 1000)
+households = st.number_input("Households", 1, 5000, 300)
+
+# Derived features
+rooms_per_household = rooms / households
+bedrooms_per_room = bedrooms / rooms
+population_per_household = population / households
+
+# Prediction button
+if st.button("Predict Price"):
+    input_data = pd.DataFrame({
+        "median_income": [median_income],
+        "housing_median_age": [age],
+        "total_rooms": [rooms],
+        "total_bedrooms": [bedrooms],
+        "population": [population],
+        "households": [households],
+        "rooms_per_household": [rooms_per_household],
+        "bedrooms_per_room": [bedrooms_per_room],
+        "population_per_household": [population_per_household]
+    })
+
+    prediction = model.predict(input_data)[0]
+
+    st.success(f"💰 Predicted House Price: ${prediction:,.2f}")
